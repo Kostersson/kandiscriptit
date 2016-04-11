@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <script src="https://raw.githubusercontent.com/bassjobsen/Bootstrap-3-Typeahead/master/bootstrap3-typeahead.js"></script>
+    <title>Plain</title>
+</head>
+<body>
+<form>
+    <div class="form-group">
+        <label for="station">Asema</label>
+        <input type="text" class="form-control" id="station" placeholder="Asema" />
+        <input type="hidden" id="station-id" value="" />
+    </div>
+    <table class="table table-bordered">
+        <caption>Junien kulkutiedot asemalla: <b id="station-name"></b> +- 1h</caption>
+        <thead>
+            <tr>
+                <th>Etuajassa</th>
+                <th>Ajallaan</th>
+                <th>Myöhässä</th>
+                <th>Peruttu</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="success" id="early"></td>
+                <td class="success" id="on-time"></td>
+                <td class="danger" id="late"></td>
+                <td class="danger" id="cancelled"></td>
+            </tr>
+        </tbody>
+    </table>
+</form>
+
+<script type="text/javascript">
+    var stations = [];
+    var station = null;
+    var stationsUrl = "http://rata.digitraffic.fi/api/v1/metadata/stations";
+    var stationDataUrl = "http://rata.digitraffic.fi/api/v1/live-trains";
+    var stationsSuccess = function (d) {
+        d.forEach(function(i){
+            stations.push({
+                name: i.stationName,
+                id: i.stationShortCode
+            });
+        });
+        var $input = $('#station');
+        $input.typeahead({
+            source:stations,
+            autoSelect: true,
+            updater: updateStation
+        });
+
+    };
+
+    var updateStation = function(item) {
+        console.log(item);
+        station = item;
+        getStationData();
+    };
+
+    var findStation = function(x) {
+      return x.stationShortCode === station.id;
+    };
+    var calculateStationData = function(data) {
+        var onTime = 0;
+        var early= 0;
+        var cancelled = 0;
+        var late = 0;
+
+        $("#station-name").html(station.name);
+
+        data.forEach(function(train){
+            if(train.cancelled){
+               cancelled++;
+               return;
+            }
+            train.timeTableRows.filter(findStation).forEach(function(row){
+                if(row.hasOwnProperty("differenceInMinutes")){
+                    if(row.differenceInMinutes > 0) {
+                        late++;
+                    }
+                    else if (row.differenceInMinutes < 0) {
+                        early++;
+                    }
+                    else{
+                        onTime++;
+                    }
+                    return;
+                }
+                onTime++;
+            });
+        });
+        $("#early").html(early);
+        $("#on-time").html(onTime);
+        $("#late").html(late);
+        $("#cancelled").html(cancelled);
+
+    };
+
+    function getStationData(){
+        $.ajax({
+            dataType: "json",
+            url: stationDataUrl,
+            data: {
+                station: station.id,
+                minutes_before_departure: 60,
+                minutes_after_departure: 60,
+                minutes_before_arrival: 60,
+                minutes_after_arrival: 60
+            },
+            success: calculateStationData
+        });
+    }
+
+    function getStations(){
+        $.ajax({
+            dataType: "json",
+            url: stationsUrl,
+            success: stationsSuccess
+        });
+    }
+
+    getStations();
+</script>
+</body>
+</html>

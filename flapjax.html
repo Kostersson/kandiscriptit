@@ -1,0 +1,136 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <script src="https://raw.githubusercontent.com/bassjobsen/Bootstrap-3-Typeahead/master/bootstrap3-typeahead.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <title>Plain</title>
+</head>
+<body>
+<script type="text/javascript">
+    var stations = [];
+    var station = null;
+    var stationsUrl = "http://rata.digitraffic.fi/api/v1/metadata/stations";
+    var stationDataUrl = "ws://rata.digitraffic.fi/api/v1/websockets/websocket";
+    var socket = null;
+    var stompClient = null;
+
+    var earlyReceiverE, earlyB, cancelledReceiverE, cancelledB, onTimeReceiverE, onTimeB, lateReceiverE, lateB;
+
+    earlyReceiverE = receiverE();
+    earlyB = earlyReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+
+    cancelledReceiverE = receiverE();
+    cancelledB = cancelledReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+
+    onTimeReceiverE = receiverE();
+    onTimeB = onTimeReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+
+    lateReceiverE = receiverE();
+    lateB = lateReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+
+
+    var findStation = function(x) {
+        return x.stationShortCode === station.id;
+    };
+
+    function getStationData(){
+        $("#station-name").html(station.name);
+        socket = new WebSocket(stationDataUrl);
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe('/live-trains/station/' + station.id, function (messages) {
+
+                JSON.parse(messages.body).forEach(function(train) {
+                    if (train.cancelled) {
+                        cancelledDataReceiverE.sendEvent(1);
+                        return;
+                    }
+                    train.timeTableRows.filter(findStation).forEach(function (row) {
+                        if (row.hasOwnProperty("differenceInMinutes")) {
+                            if (row.differenceInMinutes > 0) {
+                                lateReceiverE.sendEvent(1);
+                            }
+                            else if (row.differenceInMinutes < 0) {
+                                earlyReceiverE.sendEvent(1);
+                            }
+                            else {
+                                onTimeReceiverE.sendEvent(1);
+                            }
+                            return;
+                        }
+                        onTimeReceiverE.sendEvent(1);
+                    });
+                });
+            });
+        });
+
+    }
+
+    var stationsSuccess = function (d) {
+        d.forEach(function(i){
+            stations.push({
+                name: i.stationName,
+                id: i.stationShortCode
+            });
+        });
+        var $input = $('#station');
+        $input.typeahead({
+            source:stations,
+            autoSelect: true,
+            updater: updateStation
+        });
+
+    };
+
+    var updateStation = function(item) {
+        console.log(item);
+        station = item;
+        getStationData();
+    };
+
+    function getStations(){
+        $.ajax({
+            dataType: "json",
+            url: stationsUrl,
+            success: stationsSuccess
+        });
+    }
+
+    getStations();
+
+
+</script>
+<form>
+    <div class="form-group">
+        <label for="station">Asema</label>
+        <input type="text" class="form-control" id="station" placeholder="Asema" />
+        <input type="hidden" id="station-id" value="" />
+    </div>
+    <table class="table table-bordered">
+        <caption>Summatut junien kulkutiedot asemalla: <b id="station-name"></b></caption>
+        <thead>
+            <tr>
+                <th>Etuajassa</th>
+                <th>Ajallaan</th>
+                <th>My&ouml;h&auml;ss&auml;</th>
+                <th>Peruttu</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="success" id="early">{! earlyB !}</td>
+                <td class="success" id="on-time">{! onTimeB !}</td>
+                <td class="danger" id="late">{! lateB !}</td>
+                <td class="danger" id="cancelled">{! cancelledB !}</td>
+            </tr>
+        </tbody>
+    </table>
+</form>
+
+
+</body>
+</html>

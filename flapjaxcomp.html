@@ -1,0 +1,280 @@
+<html lang="en">
+
+<head>
+    <script lang="text/javascript" src="fx/flapjax.js">
+    </script>
+    <script lang="text/javascript">
+        var fxcode = [];
+    </script>
+
+    <meta charset="UTF-8">
+    </meta>
+
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js" lang="" type="">
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    </link>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+    </link>
+
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous" lang="" type="">
+    </script>
+
+    <script src="https://raw.githubusercontent.com/bassjobsen/Bootstrap-3-Typeahead/master/bootstrap3-typeahead.js" lang="" type="">
+    </script>
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js" lang="">
+    </script>
+
+    <title>
+        Plain
+    </title>
+
+</head>
+
+<body onload="forEach(function(l){ l(); }, fxcode)">
+
+<script type="text/javascript" lang="">
+    var stations = [];
+    var station = null;
+    var stationsUrl = "http://rata.digitraffic.fi/api/v1/metadata/stations";
+    var stationDataUrl = "ws://rata.digitraffic.fi/api/v1/websockets/websocket";
+    var socket = null;
+    var stompClient = null;
+    var earlyReceiverE, earlyB, cancelledReceiverE, cancelledB, onTimeReceiverE, onTimeB, lateReceiverE, lateB;
+    earlyReceiverE = receiverE();
+    earlyB = earlyReceiverE.collectE(0.0, function (_, count)
+    {
+        return count + 1.0;
+    }).startsWith(0.0);
+    cancelledReceiverE = receiverE();
+    cancelledB = cancelledReceiverE.collectE(0.0, function (_, count)
+    {
+        return count + 1.0;
+    }).startsWith(0.0);
+    onTimeReceiverE = receiverE();
+    onTimeB = onTimeReceiverE.collectE(0.0, function (_, count)
+    {
+        return count + 1.0;
+    }).startsWith(0.0);
+    lateReceiverE = receiverE();
+    lateB = lateReceiverE.collectE(0.0, function (_, count)
+    {
+        return count + 1.0;
+    }).startsWith(0.0);
+    var initBehaviors = function ()
+    {
+        earlyReceiverE = null;
+        earlyB = null;
+        cancelledReceiverE = null;
+        cancelledB = null;
+        onTimeReceiverE = null;
+        onTimeB = null;
+        lateReceiverE = null;
+        lateB = null;
+        console.log("foo");
+        earlyReceiverE = receiverE();
+        earlyB = earlyReceiverE.collectE(0.0, function (_, count)
+        {
+            return count + 1.0;
+        }).startsWith(0.0);
+        cancelledReceiverE = receiverE();
+        cancelledB = cancelledReceiverE.collectE(0.0, function (_, count)
+        {
+            return count + 1.0;
+        }).startsWith(0.0);
+        onTimeReceiverE = receiverE();
+        onTimeB = onTimeReceiverE.collectE(0.0, function (_, count)
+        {
+            return count + 1.0;
+        }).startsWith(0.0);
+        lateReceiverE = receiverE();
+        lateB = lateReceiverE.collectE(0.0, function (_, count)
+        {
+            return count + 1.0;
+        }).startsWith(0.0);
+    };
+    var findStation = function (x)
+    {
+        return x.stationShortCode === station.id;
+    };
+    function getStationData()
+    {
+        $("#station-name").html(station.name);
+        socket = new WebSocket(stationDataUrl);
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame)
+        {
+            stompClient.subscribe("/live-trains/station/" + station.id, function (messages)
+            {
+                JSON.parse(messages.body).forEach(function (train)
+                {
+                    if (train.cancelled)
+                    {
+                        cancelledDataReceiverE.sendEvent(1.0);
+                        return;
+                    }
+                    train.timeTableRows.filter(findStation).forEach(function (row)
+                    {
+                        if (row.hasOwnProperty("differenceInMinutes"))
+                        {
+                            if (row.differenceInMinutes > 0.0)
+                            {
+                                lateReceiverE.sendEvent(1.0);
+                            }
+                            else
+                            if (row.differenceInMinutes < 0.0)
+                            {
+                                earlyReceiverE.sendEvent(1.0);
+                            }
+                            else
+                            {
+                                onTimeReceiverE.sendEvent(1.0);
+                            }
+                            return;
+                        }
+                        onTimeReceiverE.sendEvent(1.0);
+                    });
+                });
+            });
+        });
+    }
+    var stationsSuccess = function (d)
+    {
+        d.forEach(function (i)
+        {
+            stations.push({name: i.stationName, id: i.stationShortCode});
+        });
+        var $input = $("#station");
+        $input.typeahead({source: stations, autoSelect: true, updater: updateStation});
+    };
+    var updateStation = function (item)
+    {
+        console.log(item);
+        station = item;
+        getStationData();
+    };
+    function getStations()
+    {
+        $.ajax({dataType: "json", url: stationsUrl, success: stationsSuccess});
+    }
+    getStations();
+</script>
+
+<form>
+
+    <div class="form-group">
+
+        <label for="station">
+            Asema
+        </label>
+
+        <input type="text" class="form-control" id="station" placeholder="Asema">
+        </input>
+
+        <input type="hidden" id="station-id" value="">
+        </input>
+
+    </div>
+
+    <table class="table table-bordered">
+
+        <caption>
+            Summatut junien kulkutiedot asemalla:
+            <b id="station-name">
+            </b>
+        </caption>
+
+        <thead>
+
+        <tr>
+
+            <th>
+                Etuajassa
+            </th>
+
+            <th>
+                Ajallaan
+            </th>
+
+            <th>
+                My&ouml;h&auml;ss&auml;
+            </th>
+
+            <th>
+                Peruttu
+            </th>
+
+        </tr>
+
+        </thead>
+
+        <tbody>
+
+        <tr>
+
+            <td class="success" id="early">
+                <script lang="text/javascript" type="">
+                    function fxcode0()
+                    {
+                        compilerInsertDomB(compilerUnbehavior(earlyB), "flapjaxsuid0");
+                    }
+                    fxcode.push(fxcode0);
+                </script><!--
+              --><span id="flapjaxsuid0">
+
+                 </span>
+            </td>
+
+            <td class="success" id="on-time">
+                <script lang="text/javascript" type="">
+                    function fxcode1()
+                    {
+                        compilerInsertDomB(compilerUnbehavior(onTimeB), "flapjaxsuid1");
+                    }
+                    fxcode.push(fxcode1);
+                </script><!--
+              --><span id="flapjaxsuid1">
+
+                 </span>
+            </td>
+
+            <td class="danger" id="late">
+                <script lang="text/javascript" type="">
+                    function fxcode2()
+                    {
+                        compilerInsertDomB(compilerUnbehavior(lateB), "flapjaxsuid2");
+                    }
+                    fxcode.push(fxcode2);
+                </script><!--
+              --><span id="flapjaxsuid2">
+
+                 </span>
+            </td>
+
+            <td class="danger" id="cancelled">
+                <script lang="text/javascript" type="">
+                    function fxcode3()
+                    {
+                        compilerInsertDomB(compilerUnbehavior(cancelledB), "flapjaxsuid3");
+                    }
+                    fxcode.push(fxcode3);
+                </script><!--
+              --><span id="flapjaxsuid3">
+
+                 </span>
+            </td>
+
+        </tr>
+
+        </tbody>
+
+    </table>
+
+</form>
+
+</body>
+
+</html>
