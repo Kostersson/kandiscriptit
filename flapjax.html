@@ -11,96 +11,95 @@
 </head>
 <body>
 <script type="text/javascript">
-    var stations = [];
-    var station = null;
-    var stationsUrl = "http://rata.digitraffic.fi/api/v1/metadata/stations";
-    var stationDataUrl = "ws://rata.digitraffic.fi/api/v1/websockets/websocket";
-    var socket = null;
-    var stompClient = null;
+var stations = [];
+var station = null;
+var stationsUrl = "http://rata.digitraffic.fi/api/v1/metadata/stations";
+var stationDataUrl = "ws://rata.digitraffic.fi/api/v1/websockets/websocket";
+var socket = null;
+var stompClient = null;
 
-    var earlyReceiverE, earlyB, cancelledReceiverE, cancelledB, onTimeReceiverE, onTimeB, lateReceiverE, lateB;
+var earlyReceiverE, earlyB, cancelledReceiverE, cancelledB, onTimeReceiverE, onTimeB, lateReceiverE, lateB;
 
-    earlyReceiverE = receiverE();
-    earlyB = earlyReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+earlyReceiverE = receiverE();
+earlyB = earlyReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
 
-    cancelledReceiverE = receiverE();
-    cancelledB = cancelledReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+cancelledReceiverE = receiverE();
+cancelledB = cancelledReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
 
-    onTimeReceiverE = receiverE();
-    onTimeB = onTimeReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+onTimeReceiverE = receiverE();
+onTimeB = onTimeReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
 
-    lateReceiverE = receiverE();
-    lateB = lateReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+lateReceiverE = receiverE();
+lateB = lateReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
 
+var stationsSuccess = function (d) {
+    d.forEach(function(i){
+        stations.push({
+            name: i.stationName,
+            id: i.stationShortCode
+        });
+    });
+    var $input = $('#station');
+    $input.typeahead({
+        source:stations,
+        autoSelect: true,
+        updater: updateStation
+    });
 
-    var findStation = function(x) {
-        return x.stationShortCode === station.id;
-    };
+};
 
-    function getStationData(){
-        $("#station-name").html(station.name);
-        socket = new WebSocket(stationDataUrl);
-        stompClient = Stomp.over(socket);
-        stompClient.connect({}, function (frame) {
-            stompClient.subscribe('/live-trains/station/' + station.id, function (messages) {
+var findStation = function(x) {
+    return x.stationShortCode === station.id;
+};
 
-                JSON.parse(messages.body).forEach(function(train) {
-                    if (train.cancelled) {
-                        cancelledDataReceiverE.sendEvent(1);
+function getStationData(){
+    $("#station-name").html(station.name);
+    socket = new WebSocket(stationDataUrl);
+    stompClient = Stomp.over(socket);
+    stompClient.connect({}, function (frame) {
+        stompClient.subscribe('/live-trains/station/' + station.id, function (messages) {
+
+            JSON.parse(messages.body).forEach(function(train) {
+                if (train.cancelled) {
+                    cancelledDataReceiverE.sendEvent(1);
+                    return;
+                }
+                train.timeTableRows.filter(findStation).forEach(function (row) {
+                    if (row.hasOwnProperty("differenceInMinutes")) {
+                        if (row.differenceInMinutes > 0) {
+                            lateReceiverE.sendEvent(1);
+                        }
+                        else if (row.differenceInMinutes < 0) {
+                            earlyReceiverE.sendEvent(1);
+                        }
+                        else {
+                            onTimeReceiverE.sendEvent(1);
+                        }
                         return;
                     }
-                    train.timeTableRows.filter(findStation).forEach(function (row) {
-                        if (row.hasOwnProperty("differenceInMinutes")) {
-                            if (row.differenceInMinutes > 0) {
-                                lateReceiverE.sendEvent(1);
-                            }
-                            else if (row.differenceInMinutes < 0) {
-                                earlyReceiverE.sendEvent(1);
-                            }
-                            else {
-                                onTimeReceiverE.sendEvent(1);
-                            }
-                            return;
-                        }
-                        onTimeReceiverE.sendEvent(1);
-                    });
+                    onTimeReceiverE.sendEvent(1);
                 });
             });
         });
+    });
 
-    }
+}
 
-    var stationsSuccess = function (d) {
-        d.forEach(function(i){
-            stations.push({
-                name: i.stationName,
-                id: i.stationShortCode
-            });
-        });
-        var $input = $('#station');
-        $input.typeahead({
-            source:stations,
-            autoSelect: true,
-            updater: updateStation
-        });
+var updateStation = function(item) {
+    console.log(item);
+    station = item;
+    getStationData();
+};
 
-    };
+function getStations(){
+    $.ajax({
+        dataType: "json",
+        url: stationsUrl,
+        success: stationsSuccess
+    });
+}
 
-    var updateStation = function(item) {
-        console.log(item);
-        station = item;
-        getStationData();
-    };
-
-    function getStations(){
-        $.ajax({
-            dataType: "json",
-            url: stationsUrl,
-            success: stationsSuccess
-        });
-    }
-
-    getStations();
+getStations();
 
 
 </script>

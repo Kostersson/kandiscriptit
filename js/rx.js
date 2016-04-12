@@ -2,8 +2,6 @@ var stations = [];
 var station = null;
 var stationsUrl = "http://rata.digitraffic.fi/api/v1/metadata/stations";
 var stationDataUrl = "ws://rata.digitraffic.fi/api/v1/websockets/websocket";
-var socket = null;
-
 
 var onTime = 0;
 var early= 0;
@@ -23,10 +21,7 @@ var stationsSuccess = function (d) {
         autoSelect: true,
         updater: updateStation
     });
-
 };
-
-
 
 var findStation = function(x) {
     return x.stationShortCode === station.id;
@@ -68,7 +63,6 @@ var stompSocket = function() {
     var ws = new WebSocket(stationDataUrl);
     stompClient = Stomp.over(ws);
     stompClient.debug = null;
-    // Handle the data
     return  Rx.Observable.create (function (obs) {
         stompClient.connect({}, function (frame) {
             stompClient.subscribe('/live-trains/station/' + station.id, function (messages) {
@@ -81,7 +75,7 @@ var stompSocket = function() {
 var updateStation = function(item) {
     console.log(item);
     station = item;
-    socket = stompSocket();
+    var socket = stompSocket();
     socket.subscribe(
         function (data) {
             calculateStationData(data);

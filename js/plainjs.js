@@ -23,13 +23,6 @@ var stationsSuccess = function (d) {
         autoSelect: true,
         updater: updateStation
     });
-
-};
-
-var updateStation = function(item) {
-    console.log(item);
-    station = item;
-    getStationData();
 };
 
 var findStation = function(x) {
@@ -79,6 +72,13 @@ function getStationData(){
     });
 
 }
+
+
+var updateStation = function(item) {
+    console.log(item);
+    station = item;
+    getStationData();
+};
 
 function getStations(){
     $.ajax({
