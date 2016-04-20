@@ -1,7 +1,7 @@
 <html lang="en">
 
 <head>
-    <script lang="text/javascript" src="fx/flapjax.js">
+    <script lang="text/javascript" src="/fx/flapjax.js">
     </script>
     <script lang="text/javascript">
         var fxcode = [];
@@ -45,56 +45,33 @@
     var stompClient = null;
     var earlyReceiverE, earlyB, cancelledReceiverE, cancelledB, onTimeReceiverE, onTimeB, lateReceiverE, lateB;
     earlyReceiverE = receiverE();
-    earlyB = earlyReceiverE.collectE(0.0, function (_, count)
+    earlyB = earlyReceiverE.collectE(0.0, function (count)
     {
         return count + 1.0;
     }).startsWith(0.0);
     cancelledReceiverE = receiverE();
-    cancelledB = cancelledReceiverE.collectE(0.0, function (_, count)
+    cancelledB = cancelledReceiverE.collectE(0.0, function (count)
     {
         return count + 1.0;
     }).startsWith(0.0);
     onTimeReceiverE = receiverE();
-    onTimeB = onTimeReceiverE.collectE(0.0, function (_, count)
+    onTimeB = onTimeReceiverE.collectE(0.0, function (count)
     {
         return count + 1.0;
     }).startsWith(0.0);
     lateReceiverE = receiverE();
-    lateB = lateReceiverE.collectE(0.0, function (_, count)
+    lateB = lateReceiverE.collectE(0.0, function (count)
     {
         return count + 1.0;
     }).startsWith(0.0);
-    var initBehaviors = function ()
+    var stationsSuccess = function (d)
     {
-        earlyReceiverE = null;
-        earlyB = null;
-        cancelledReceiverE = null;
-        cancelledB = null;
-        onTimeReceiverE = null;
-        onTimeB = null;
-        lateReceiverE = null;
-        lateB = null;
-        console.log("foo");
-        earlyReceiverE = receiverE();
-        earlyB = earlyReceiverE.collectE(0.0, function (_, count)
+        d.forEach(function (i)
         {
-            return count + 1.0;
-        }).startsWith(0.0);
-        cancelledReceiverE = receiverE();
-        cancelledB = cancelledReceiverE.collectE(0.0, function (_, count)
-        {
-            return count + 1.0;
-        }).startsWith(0.0);
-        onTimeReceiverE = receiverE();
-        onTimeB = onTimeReceiverE.collectE(0.0, function (_, count)
-        {
-            return count + 1.0;
-        }).startsWith(0.0);
-        lateReceiverE = receiverE();
-        lateB = lateReceiverE.collectE(0.0, function (_, count)
-        {
-            return count + 1.0;
-        }).startsWith(0.0);
+            stations.push({name: i.stationName, id: i.stationShortCode});
+        });
+        var $input = $("#station");
+        $input.typeahead({source: stations, autoSelect: true, updater: updateStation});
     };
     var findStation = function (x)
     {
@@ -141,15 +118,6 @@
             });
         });
     }
-    var stationsSuccess = function (d)
-    {
-        d.forEach(function (i)
-        {
-            stations.push({name: i.stationName, id: i.stationShortCode});
-        });
-        var $input = $("#station");
-        $input.typeahead({source: stations, autoSelect: true, updater: updateStation});
-    };
     var updateStation = function (item)
     {
         console.log(item);

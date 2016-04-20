@@ -21,16 +21,16 @@ var stompClient = null;
 var earlyReceiverE, earlyB, cancelledReceiverE, cancelledB, onTimeReceiverE, onTimeB, lateReceiverE, lateB;
 
 earlyReceiverE = receiverE();
-earlyB = earlyReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+earlyB = earlyReceiverE.collectE(0,function(count) { return count + 1; }).startsWith(0);
 
 cancelledReceiverE = receiverE();
-cancelledB = cancelledReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+cancelledB = cancelledReceiverE.collectE(0,function(count) { return count + 1; }).startsWith(0);
 
 onTimeReceiverE = receiverE();
-onTimeB = onTimeReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+onTimeB = onTimeReceiverE.collectE(0,function(count) { return count + 1; }).startsWith(0);
 
 lateReceiverE = receiverE();
-lateB = lateReceiverE.collectE(0,function(_,count) { return count + 1; }).startsWith(0);
+lateB = lateReceiverE.collectE(0,function(count) { return count + 1; }).startsWith(0);
 
 var stationsSuccess = function (d) {
     d.forEach(function(i){
